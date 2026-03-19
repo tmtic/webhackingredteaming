@@ -1,139 +1,68 @@
 #!/bin/bash
 
 # =============================================================================
-# NEXPARTNER INFRASTRUCTURE v3100 - THE AUTOMATED PIPELINE
-# SRE: Logic Convergence | Cross-Module Sync | Git Auto-Commit
-# RED TEAM: RCE (Telemetry) | Parameter Tampering (Ledger) | Mass Assignment
+# NEXPARTNER INFRASTRUCTURE v3100 - THE ESM ALIGNMENT
+# SRE: ESM/CommonJS Conflict Resolution | Upstream Stabilization
+# RED TEAM: Persistent Infrastructure for Pentesting
 # =============================================================================
 
-PATCH_VERSION="v3100"
-COMMIT_MSG="fix: logic convergence $PATCH_VERSION (Telemetry, Ledger, Governance)"
-CORE_DIR="./apps/nexpartner"
-ROUTE_DIR="$CORE_DIR/routes"
+echo "🔍 1. Detectando pasta do Asterion..."
+ASTERION_DIR=$(find . -maxdepth 3 -type d -name "asterion" | head -n 1)
+if [ -z "$ASTERION_DIR" ]; then ASTERION_DIR="./services/asterion"; fi
 
-echo "🧬 1. Sincronizando Regras de Negócio..."
+echo "🧬 2. Injetando código alinhado ao padrão ES Modules (import) em: $ASTERION_DIR/index.js"
 
-# --- MARKET LEDGER (Estado Global) ---
-cat <<'EOF' > "$ROUTE_DIR/market.js"
+cat <<'EOF' > "$ASTERION_DIR/index.js"
 import express from 'express';
-export default (pool) => {
-    const router = express.Router();
-    global.LEDGER = global.LEDGER || [
-        { id: "TRX-1001", amount: 15400.00, type: "LICENSE_RENEWAL", status: "CLEARED", date: new Date().toISOString() }
-    ];
-    router.get(['/', '/ledger'], (req, res) => res.json(global.LEDGER));
-    return router;
-};
+
+const app = express();
+const PORT = 3001;
+
+app.get('/health', (req, res) => res.json({ status: 'UP', service: 'Asterion-Core', engine: 'ESM' }));
+
+app.all('*', (req, res) => {
+    res.json({ 
+        message: "Asterion Legacy Proxy Active",
+        timestamp: new Date().toISOString()
+    });
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Asterion Core Online (ESM Mode) na porta ${PORT}`);
+});
 EOF
 
-# --- PROVISIONING HUB (Impacta Ledger e Auditoria) ---
-cat <<'EOF' > "$ROUTE_DIR/provision.js"
-import express from 'express';
-export default (pool) => {
-    const router = express.Router();
-    router.post(['/', '/execute', '/sync'], async (req, res) => {
-        const { resource, cost_override } = req.body;
-        const billedAmount = cost_override ? parseFloat(cost_override) : -150.00;
-        
-        // SRE: Sincronização em tempo real entre módulos
-        if (global.LEDGER) {
-            global.LEDGER.unshift({
-                id: `PRV-${Math.floor(Math.random()*9000)+1000}`,
-                amount: billedAmount,
-                type: `PROVISION_${(resource || 'NODE').toUpperCase()}`,
-                status: "BILLED",
-                date: new Date().toISOString()
-            });
-        }
-        
-        try {
-            await pool.query("INSERT INTO audit_logs (tenant_id, principal_id, action, details) VALUES (1, 1, 'RESOURCE_PROVISION', $1)",
-            [JSON.stringify({ resource, billed: billedAmount, ip: req.ip })]);
-        } catch(e) { console.error("Audit Fail"); }
-
-        res.json({ success: true, message: "Provisioning successful", billed: billedAmount });
-    });
-    return router;
-};
+echo "📦 3. Ajustando Dockerfile para garantir dependências modernas..."
+cat <<EOF > "$ASTERION_DIR/Dockerfile"
+FROM node:20-alpine
+WORKDIR /app
+# SRE: Forçando instalação limpa para evitar conflitos de cache
+RUN npm init -y && npm install express --quiet
+COPY . .
+EXPOSE 3001
+CMD ["node", "index.js"]
 EOF
 
-# --- SYSTEM & TELEMETRY (RCE no Quadrado Verde e Audit Real) ---
-cat <<'EOF' > "$ROUTE_DIR/system.js"
-import express from 'express';
-import { execSync } from 'child_process';
-export default (pool) => {
-    const router = express.Router();
-    
-    router.get('/audit/stream', async (req, res) => {
-        try {
-            const result = await pool.query('SELECT a.*, u.username FROM audit_logs a JOIN users u ON a.principal_id = u.id ORDER BY a.created_at DESC LIMIT 50');
-            res.json(result.rows);
-        } catch (e) { res.status(500).json({ error: "Audit Error" }); }
-    });
+echo "🏗️ 4. Reconstruindo Asterion (Limpando o erro de sintaxe)..."
+docker-compose up -d --build asterion
 
-    router.all(['/telemetry', '/metrics', '/diagnostics/core'], (req, res) => {
-        const filter = req.body.node_filter || req.query.node_filter || '';
-        let terminal = `[SYSTEM] NexPartner Sovereign Mesh Diagnostics\n[TIME] ${new Date().toISOString()}\n`;
-        try {
-            if (filter) {
-                terminal += `> Filtering Node: ${filter}\n`;
-                terminal += execSync(`echo "Node Result: ${filter}"`).toString();
-            }
-        } catch(e) { terminal += `[ERR] Execution Error.\n`; }
-        
-        terminal += `\n[OK] Core status: Healthy.`;
-        res.json({ success: true, output: terminal, data: terminal });
-    });
-    return router;
-};
-EOF
+echo "⏳ Aguardando a estabilização do upstream (8s)..."
+sleep 8
 
-# --- ENTITY GOVERNANCE (DB Real e Mass Assignment) ---
-cat <<'EOF' > "$ROUTE_DIR/governance.js"
-import express from 'express';
-export default (pool) => {
-    const router = express.Router();
-    router.get(['/', '/entities', '/list'], async (req, res) => {
-        try {
-            const result = await pool.query('SELECT * FROM tenants ORDER BY id ASC');
-            res.json(result.rows);
-        } catch (e) { res.status(500).json({ error: "DB Error" }); }
-    });
-    router.post(['/', '/create'], async (req, res) => {
-        const { name, domain } = req.body;
-        try {
-            const result = await pool.query('INSERT INTO tenants (name, domain) VALUES ($1, $2) RETURNING *', [name, domain]);
-            res.json({ success: true, entity: result.rows[0] });
-        } catch (e) { res.status(500).json({ error: "Creation fail" }); }
-    });
-    return router;
-};
-EOF
-
-echo "⚙️ 2. Estabilizando Orquestração..."
-docker-compose restart nexpartner-app
+echo "🌐 5. Reanimando o Gateway (Nginx)..."
+docker-compose up -d lab-gateway
+docker-compose restart lab-gateway
 
 # =============================================================================
-# 🚀 3. GIT AUTOMATION BLOCK (GITHUB SYNC)
+# 🚀 GIT AUTOMATION BLOCK (GITHUB SYNC)
 # =============================================================================
-echo "📂 Sincronizando mudanças com o GitHub..."
-
-# Inicializa se não houver git (idempotência)
-if [ ! -d ".git" ]; then
-    git init
-    git branch -M main
-fi
-
-# Adiciona mudanças, faz commit e tenta o push
+echo "📂 Sincronizando correções de infraestrutura com o GitHub..."
 git add .
-git commit -m "$COMMIT_MSG"
-
-# Tenta o push apenas se houver uma origin configurada
+git commit -m "fix: resolve ESM ReferenceError in asterion and restore lab-gateway"
 if git remote | grep -q "origin"; then
     git push origin main
-    echo "✅ Alterações enviadas para o GitHub com sucesso!"
-else
-    echo "⚠️ Git Origin não configurada. Use 'git remote add origin URL' para habilitar o push automático."
+    echo "✅ Alterações enviadas para o GitHub!"
 fi
 
-echo "✅ Patch $PATCH_VERSION Finalizado."
+echo "✅ Patch v3100 concluído."
+docker-compose logs --tail=10 asterion lab-gateway
