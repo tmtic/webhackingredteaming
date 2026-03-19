@@ -1,0 +1,2 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+@layer base { body { @apply bg-nex-dark text-slate-300 antialiased; } }

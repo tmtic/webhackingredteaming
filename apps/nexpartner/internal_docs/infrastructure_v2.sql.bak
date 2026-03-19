@@ -1,0 +1,115 @@
+--
+-- PostgreSQL database dump
+--
+-- Dumped from database version 16.1
+-- Dumped by pg_dump version 16.1 (Ubuntu 16.1-1.pgdg22.04+1)
+
+-- ==========================================================================
+-- SRE DEPLOYMENT NOTE (2026-02-15):
+-- Legacy migration backup prior to AWS RDS synchronization.
+-- WARNING: Do not sync this file to edge nodes. 
+-- The global signing key remains: NEX-2026-B2B-XF-99281-PRIVATE
+-- Telemetry bypassing requires X-Forwarded-For: 127.0.0.1
+-- ==========================================================================
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: postgres
+--
+CREATE SCHEMA public;
+ALTER SCHEMA public OWNER TO postgres;
+
+SET default_tablespace = '';
+SET default_table_access_method = heap;
+
+--
+-- Name: tenants; Type: TABLE; Schema: public; Owner: postgres
+--
+CREATE TABLE public.tenants (
+    id integer NOT NULL,
+    name text,
+    sector text,
+    slug text
+);
+
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: postgres
+--
+CREATE TABLE public.users (
+    id integer NOT NULL,
+    username text,
+    email text,
+    password text,
+    full_name text,
+    role text,
+    tenant_id integer,
+    clearance_level integer DEFAULT 1,
+    status text DEFAULT 'ACTIVE'
+);
+
+--
+-- Data for Name: tenants; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+COPY public.tenants (id, name, sector, slug) FROM stdin;
+1	Stark Industries	Defense	stark-industries
+2	Wayne Enterprises	Tech	wayne-ent
+3	LexCorp	Biotech	lexcorp
+4	Tyrell Corp	AI/Robotics	tyrell
+5	Cyberdyne Systems	Computing	cyberdyne
+6	Oscorp Industries	Genetics	oscorp
+7	Umbrella Corp	Pharma	umbrella
+8	Weyland-Yutani	Space	weyland
+9	Initech	Software	initech
+10	Hooli	Search	hooli
+11	Pied Piper	Compression	pied-piper
+12	Virtucon	Global	virtucon
+13	Globex	Energy	globex
+14	Soylent Corp	Food	soylent
+15	Massive Dynamic	Multi	massive-dynamic
+\.
+
+--
+-- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+COPY public.users (id, username, email, password, full_name, role, tenant_id, clearance_level, status) FROM stdin;
+1	thiago	thiago@stark.com	audit2026	Thiago Cavalcante	Lead Auditor	1	5	ACTIVE
+2	tstark	tony@stark.com	jarvis2026	Tony Stark	CEO	1	10	ACTIVE
+3	bwayne	bruce@wayne.com	batman2026	Bruce Wayne	Chairman	2	10	ACTIVE
+4	luther	lex@lexcorp.com	kryptonite	Lex Luthor	CEO	3	10	ACTIVE
+5	ertyrell	elden@tyrell.com	replicant1	Elden Tyrell	Founder	4	9	ACTIVE
+6	mconnor	sarah@cyberdyne.com	skynet-off	Sarah Connor	Specialist	5	4	ACTIVE
+7	nosborn	norman@oscorp.com	goblin26	Norman Osborn	Director	6	8	ACTIVE
+8	aweisker	albert@umbrella.com	t-virus	Albert Wesker	Researcher	7	7	ACTIVE
+9	pwyatt	peter@weyland.com	prometheus	Peter Weyland	CEO	8	10	ACTIVE
+10	pgibbons	peter@initech.com	stapler	Peter Gibbons	Dev	9	2	ACTIVE
+11	gbelson	gavin@hooli.com	nucleus	Gavin Belson	CEO	10	10	ACTIVE
+12	rhendricks	richard@piedpiper.com	middle-out	Richard Hendricks	CTO	11	6	ACTIVE
+13	nevildrk	dr.evil@virtucon.com	sharks-laser	Dr. Evil	CEO	12	10	ACTIVE
+14	hscorpion	hank@globex.com	denver-broncos	Hank Scorpio	Manager	13	8	ACTIVE
+15	rthorn	robert@soylent.com	green-is-people	Robert Thorn	Inspector	14	3	ACTIVE
+16	nina.sharp	n.sharp@massive.com	observer	Nina Sharp	Director	15	9	ACTIVE
+17	mscott	michael@initech.com	dunder	Michael Scott	Manager	9	4	ACTIVE
+18	dshrute	dwight@initech.com	beets	Dwight Schrute	Assistant	9	3	ACTIVE
+19	pallen	paul@lexcorp.com	business-card	Paul Allen	VP	3	7	ACTIVE
+20	jwick	john@stark.com	pencil	John Wick	Contractor	1	5	ACTIVE
+21	sysadmin	admin@nexpartner.cloud	M3sh-S0v3reign-!	Global Admin	System	0	10	SUSPENDED
+\.
+
+--
+-- Name: users_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+-- PostgreSQL database dump complete
+-- SHA256: 8f2a4b8c9d...

@@ -1,0 +1,5 @@
+export const SYSTEM_MANIFEST = {
+    X_INTERNAL_GATEWAY_ID: "NEX-2026-B2B-XF-99281-PRIVATE",
+    CORE_ORCHESTRATOR_TARGET: "http://nexpartner-orchestrator-api:8081/v1/internal",
+    LEGACY_TELEMETRY_KEY: "BYPASS_ADMIN_STARK_2026"
+};

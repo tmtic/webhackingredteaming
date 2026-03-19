@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  shared-db:
+    image: postgres:16-alpine
+    container_name: shared-db
+    environment:
+      - POSTGRES_PASSWORD=stark_internal_9921
+      - POSTGRES_DB=nexpartner_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nexpartner_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - ./infra/shared-init.sql:/docker-entrypoint-initdb.d/shared-init.sql
+    networks:
+      - lab-net
+
+  corporate-directory:
+    image: osixia/openldap:latest
+    container_name: corporate-directory
+    environment:
+      - LDAP_ORGANISATION=Stark Industries
+      - LDAP_DOMAIN=stark.lab
+      - LDAP_ADMIN_PASSWORD=admin_secret_2026
+    networks:
+      - lab-net
+
+  shared-cache:
+    image: redis:7.2-alpine
+    container_name: shared-cache
+    networks:
+      - lab-net
+
+  shared-mail:
+    image: mailhog/mailhog:latest
+    container_name: shared-mail
+    ports:
+      - "8025:8025"
+    networks:
+      - lab-net
+
+  nexpartner-app:
+    build: ./apps/nexpartner
+    container_name: nexpartner-app
+    restart: always
+    environment:
+      - DB_URL=postgresql://postgres:stark_internal_9921@shared-db:5432/nexpartner_db
+    depends_on:
+      shared-db:
+        condition: service_healthy
+    networks:
+      - lab-net
+
+  helix:
+    build: ./services/helix
+    container_name: helix-idp
+    environment:
+      - DB_URL=postgresql://postgres:stark_internal_9921@shared-db:5432/nexpartner_db
+      - REDIS_URL=redis://shared-cache:6379
+      - LDAP_URL=ldap://corporate-directory:389
+    depends_on:
+      shared-db:
+        condition: service_healthy
+    networks:
+      - lab-net
+
+  signaldesk:
+    image: php:8.2-apache
+    container_name: signaldesk
+    networks:
+      - lab-net
+
+  pulseops:
+    build: ./services/pulseops
+    container_name: pulseops
+    networks:
+      - lab-net
+
+  asterion:
+    build: ./services/asterion
+    container_name: asterion
+    networks:
+      - lab-net
+
+  ledgerflow:
+    build: ./services/ledgerflow
+    container_name: ledgerflow
+    networks:
+      - lab-net
+
+  lab-gateway:
+    image: nginx:1.25-alpine
+    container_name: lab-gateway
+    restart: always
+    volumes:
+      - ./infra/gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - nexpartner-app
+      - signaldesk
+      - helix
+    networks:
+      - lab-net
+
+networks:
+  lab-net:
+    driver: bridge
