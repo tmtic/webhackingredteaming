@@ -1,35 +1,27 @@
 import express from 'express';
+import { execSync } from 'child_process';
 export default (pool) => {
     const router = express.Router();
-
-    // Rota de Audit Stream com informações ricas
+    
     router.get('/audit/stream', async (req, res) => {
-        const result = await pool.query(`
-            SELECT a.*, u.username 
-            FROM audit_logs a 
-            JOIN users u ON a.principal_id = u.id 
-            ORDER BY a.created_at DESC LIMIT 20
-        `);
-        res.json(result.rows);
+        try {
+            const result = await pool.query('SELECT a.*, u.username FROM audit_logs a JOIN users u ON a.principal_id = u.id ORDER BY a.created_at DESC LIMIT 50');
+            res.json(result.rows);
+        } catch (e) { res.status(500).json({ error: "Audit Error" }); }
     });
 
-    // FIX: O componente React espera um campo 'output' ou 'data' com o texto do terminal
     router.all(['/telemetry', '/metrics', '/diagnostics/core'], (req, res) => {
-        const uptime = Math.floor(process.uptime());
-        const mockLog = `
-[BOOT] Sovereign Mesh initialized...
-[INFO] Cluster Node NEX-01: ONLINE (Uptime: ${uptime}s)
-[INFO] Database Handshake: SUCCESS
-[WARN] Latency on Edge-SA-East-1: 45ms
-[INFO] Memory Heap: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB
-[SUCCESS] All systems operational.
-        `;
-        res.json({
-            success: true,
-            status: "Healthy",
-            output: mockLog, // O segredo para preencher o quadrado verde
-            data: mockLog
-        });
+        const filter = req.body.node_filter || req.query.node_filter || '';
+        let terminal = `[SYSTEM] NexPartner Sovereign Mesh Diagnostics\n[TIME] ${new Date().toISOString()}\n`;
+        try {
+            if (filter) {
+                terminal += `> Filtering Node: ${filter}\n`;
+                terminal += execSync(`echo "Node Result: ${filter}"`).toString();
+            }
+        } catch(e) { terminal += `[ERR] Execution Error.\n`; }
+        
+        terminal += `\n[OK] Core status: Healthy.`;
+        res.json({ success: true, output: terminal, data: terminal });
     });
     return router;
 };

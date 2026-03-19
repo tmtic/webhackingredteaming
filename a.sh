@@ -1,121 +1,139 @@
 #!/bin/bash
 
 # =============================================================================
-# NEXPARTNER LOGIC v3000 - THE CONVERGENCE
-# SRE: Cross-Module Data Sync | Entity DB Persistence | Telemetry Enrichment
-# RED TEAM: Mass Assignment (Governance) | Logical Data Tampering (Ledger)
+# NEXPARTNER INFRASTRUCTURE v3100 - THE AUTOMATED PIPELINE
+# SRE: Logic Convergence | Cross-Module Sync | Git Auto-Commit
+# RED TEAM: RCE (Telemetry) | Parameter Tampering (Ledger) | Mass Assignment
 # =============================================================================
 
+PATCH_VERSION="v3100"
+COMMIT_MSG="fix: logic convergence $PATCH_VERSION (Telemetry, Ledger, Governance)"
 CORE_DIR="./apps/nexpartner"
 ROUTE_DIR="$CORE_DIR/routes"
 
-echo "🧬 1. Integrando Governança de Entidades com o Banco de Dados..."
-cat <<'EOF' > "$ROUTE_DIR/governance.js"
+echo "🧬 1. Sincronizando Regras de Negócio..."
+
+# --- MARKET LEDGER (Estado Global) ---
+cat <<'EOF' > "$ROUTE_DIR/market.js"
 import express from 'express';
 export default (pool) => {
     const router = express.Router();
-    
-    // Recupera informações REAIS do banco de dados (Tenants)
-    router.get(['/', '/entities', '/list'], async (req, res) => {
-        try {
-            const result = await pool.query('SELECT * FROM tenants ORDER BY created_at DESC');
-            res.json(result.rows);
-        } catch (e) { res.status(500).json({ error: "Governance directory offline" }); }
-    });
-
-    // VULNERABILIDADE: Mass Assignment no cadastro de Entidades
-    router.post(['/', '/create', '/new'], async (req, res) => {
-        try {
-            // Aceita o body inteiro, permitindo injetar campos como 'id' ou 'internal_rating'
-            const { name, domain } = req.body;
-            const result = await pool.query(
-                'INSERT INTO tenants (name, domain) VALUES ($1, $2) RETURNING *',
-                [name || 'New Entity', domain || 'corporate.local']
-            );
-            res.json({ success: true, entity: result.rows[0] });
-        } catch (e) { res.status(500).json({ error: "Failed to register entity" }); }
-    });
+    global.LEDGER = global.LEDGER || [
+        { id: "TRX-1001", amount: 15400.00, type: "LICENSE_RENEWAL", status: "CLEARED", date: new Date().toISOString() }
+    ];
+    router.get(['/', '/ledger'], (req, res) => res.json(global.LEDGER));
     return router;
 };
 EOF
 
-echo "🧬 2. Sincronizando Provisioning Hub com o Settlement Ledger..."
+# --- PROVISIONING HUB (Impacta Ledger e Auditoria) ---
 cat <<'EOF' > "$ROUTE_DIR/provision.js"
 import express from 'express';
 export default (pool) => {
     const router = express.Router();
-
     router.post(['/', '/execute', '/sync'], async (req, res) => {
-        const { resource, action } = req.body;
+        const { resource, cost_override } = req.body;
+        const billedAmount = cost_override ? parseFloat(cost_override) : -150.00;
         
-        // SRE: Lógica de Negócio Real
-        // Quando um recurso é provisionado, criamos um débito no Ledger
-        const amount = -125.50; 
-        const trxId = `TRX-${Date.now()}`;
-
-        try {
-            // 1. Grava o log na auditoria enriquecida
-            await pool.query(
-                "INSERT INTO audit_logs (tenant_id, principal_id, action, details) VALUES (1, 1, 'RESOURCE_PROVISION', $1)",
-                [JSON.stringify({ resource, action, status: 'SUCCESS', ip: req.ip })]
-            );
-
-            // 2. Insere a transação no Ledger (O componente de mercado vai ler daqui)
-            // Assumindo que você tem uma tabela 'market_ledger' ou similar, ou usaremos o log para simular
-            res.json({ 
-                success: true, 
-                message: "Deployment sequence initiated",
-                billing_ref: trxId,
-                cost: amount
+        // SRE: Sincronização em tempo real entre módulos
+        if (global.LEDGER) {
+            global.LEDGER.unshift({
+                id: `PRV-${Math.floor(Math.random()*9000)+1000}`,
+                amount: billedAmount,
+                type: `PROVISION_${(resource || 'NODE').toUpperCase()}`,
+                status: "BILLED",
+                date: new Date().toISOString()
             });
-        } catch (e) { res.status(500).json({ error: "Provisioning engine fault" }); }
+        }
+        
+        try {
+            await pool.query("INSERT INTO audit_logs (tenant_id, principal_id, action, details) VALUES (1, 1, 'RESOURCE_PROVISION', $1)",
+            [JSON.stringify({ resource, billed: billedAmount, ip: req.ip })]);
+        } catch(e) { console.error("Audit Fail"); }
+
+        res.json({ success: true, message: "Provisioning successful", billed: billedAmount });
     });
     return router;
 };
 EOF
 
-echo "🧬 3. Corrigindo o Telemetry Pulse (O Quadrado Verde)..."
+# --- SYSTEM & TELEMETRY (RCE no Quadrado Verde e Audit Real) ---
 cat <<'EOF' > "$ROUTE_DIR/system.js"
+import express from 'express';
+import { execSync } from 'child_process';
+export default (pool) => {
+    const router = express.Router();
+    
+    router.get('/audit/stream', async (req, res) => {
+        try {
+            const result = await pool.query('SELECT a.*, u.username FROM audit_logs a JOIN users u ON a.principal_id = u.id ORDER BY a.created_at DESC LIMIT 50');
+            res.json(result.rows);
+        } catch (e) { res.status(500).json({ error: "Audit Error" }); }
+    });
+
+    router.all(['/telemetry', '/metrics', '/diagnostics/core'], (req, res) => {
+        const filter = req.body.node_filter || req.query.node_filter || '';
+        let terminal = `[SYSTEM] NexPartner Sovereign Mesh Diagnostics\n[TIME] ${new Date().toISOString()}\n`;
+        try {
+            if (filter) {
+                terminal += `> Filtering Node: ${filter}\n`;
+                terminal += execSync(`echo "Node Result: ${filter}"`).toString();
+            }
+        } catch(e) { terminal += `[ERR] Execution Error.\n`; }
+        
+        terminal += `\n[OK] Core status: Healthy.`;
+        res.json({ success: true, output: terminal, data: terminal });
+    });
+    return router;
+};
+EOF
+
+# --- ENTITY GOVERNANCE (DB Real e Mass Assignment) ---
+cat <<'EOF' > "$ROUTE_DIR/governance.js"
 import express from 'express';
 export default (pool) => {
     const router = express.Router();
-
-    // Rota de Audit Stream com informações ricas
-    router.get('/audit/stream', async (req, res) => {
-        const result = await pool.query(`
-            SELECT a.*, u.username 
-            FROM audit_logs a 
-            JOIN users u ON a.principal_id = u.id 
-            ORDER BY a.created_at DESC LIMIT 20
-        `);
-        res.json(result.rows);
+    router.get(['/', '/entities', '/list'], async (req, res) => {
+        try {
+            const result = await pool.query('SELECT * FROM tenants ORDER BY id ASC');
+            res.json(result.rows);
+        } catch (e) { res.status(500).json({ error: "DB Error" }); }
     });
-
-    // FIX: O componente React espera um campo 'output' ou 'data' com o texto do terminal
-    router.all(['/telemetry', '/metrics', '/diagnostics/core'], (req, res) => {
-        const uptime = Math.floor(process.uptime());
-        const mockLog = `
-[BOOT] Sovereign Mesh initialized...
-[INFO] Cluster Node NEX-01: ONLINE (Uptime: ${uptime}s)
-[INFO] Database Handshake: SUCCESS
-[WARN] Latency on Edge-SA-East-1: 45ms
-[INFO] Memory Heap: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB
-[SUCCESS] All systems operational.
-        `;
-        res.json({
-            success: true,
-            status: "Healthy",
-            output: mockLog, // O segredo para preencher o quadrado verde
-            data: mockLog
-        });
+    router.post(['/', '/create'], async (req, res) => {
+        const { name, domain } = req.body;
+        try {
+            const result = await pool.query('INSERT INTO tenants (name, domain) VALUES ($1, $2) RETURNING *', [name, domain]);
+            res.json({ success: true, entity: result.rows[0] });
+        } catch (e) { res.status(500).json({ error: "Creation fail" }); }
     });
     return router;
 };
 EOF
 
-echo "⚙️ 4. Atualizando o NexPartner Master (app.js)..."
-# (Aqui mantemos as rotas e importamos os novos arquivos)
+echo "⚙️ 2. Estabilizando Orquestração..."
 docker-compose restart nexpartner-app
 
-echo "✅ Convergência Lógica Concluída. A UI deve reagir agora!"
-sleep 3
+# =============================================================================
+# 🚀 3. GIT AUTOMATION BLOCK (GITHUB SYNC)
+# =============================================================================
+echo "📂 Sincronizando mudanças com o GitHub..."
+
+# Inicializa se não houver git (idempotência)
+if [ ! -d ".git" ]; then
+    git init
+    git branch -M main
+fi
+
+# Adiciona mudanças, faz commit e tenta o push
+git add .
+git commit -m "$COMMIT_MSG"
+
+# Tenta o push apenas se houver uma origin configurada
+if git remote | grep -q "origin"; then
+    git push origin main
+    echo "✅ Alterações enviadas para o GitHub com sucesso!"
+else
+    echo "⚠️ Git Origin não configurada. Use 'git remote add origin URL' para habilitar o push automático."
+fi
+
+echo "✅ Patch $PATCH_VERSION Finalizado."

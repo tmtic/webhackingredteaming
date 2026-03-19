@@ -1,26 +1,18 @@
 import express from 'express';
 export default (pool) => {
     const router = express.Router();
-    
-    // Recupera informações REAIS do banco de dados (Tenants)
     router.get(['/', '/entities', '/list'], async (req, res) => {
         try {
-            const result = await pool.query('SELECT * FROM tenants ORDER BY created_at DESC');
+            const result = await pool.query('SELECT * FROM tenants ORDER BY id ASC');
             res.json(result.rows);
-        } catch (e) { res.status(500).json({ error: "Governance directory offline" }); }
+        } catch (e) { res.status(500).json({ error: "DB Error" }); }
     });
-
-    // VULNERABILIDADE: Mass Assignment no cadastro de Entidades
-    router.post(['/', '/create', '/new'], async (req, res) => {
+    router.post(['/', '/create'], async (req, res) => {
+        const { name, domain } = req.body;
         try {
-            // Aceita o body inteiro, permitindo injetar campos como 'id' ou 'internal_rating'
-            const { name, domain } = req.body;
-            const result = await pool.query(
-                'INSERT INTO tenants (name, domain) VALUES ($1, $2) RETURNING *',
-                [name || 'New Entity', domain || 'corporate.local']
-            );
+            const result = await pool.query('INSERT INTO tenants (name, domain) VALUES ($1, $2) RETURNING *', [name, domain]);
             res.json({ success: true, entity: result.rows[0] });
-        } catch (e) { res.status(500).json({ error: "Failed to register entity" }); }
+        } catch (e) { res.status(500).json({ error: "Creation fail" }); }
     });
     return router;
 };
